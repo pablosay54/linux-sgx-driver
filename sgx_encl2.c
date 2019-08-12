@@ -402,6 +402,59 @@ out:
 	return ret;
 }
 
+long alloc_range(struct sgx_range *rg)
+{
+	struct sgx_encl *encl;
+	struct sgx_range _rg;
+	unsigned long end = rg->start_addr + rg->nr_pages * PAGE_SIZE;
+	struct vm_area_struct *vma;
+	int ret = 0;
+
+	if (!sgx_has_sgx2)
+		return -ENOSYS;
+
+	if (rg->start_addr & (PAGE_SIZE - 1))
+		return -EINVAL;
+
+	if (!rg->nr_pages)
+		return -EINVAL;
+
+	ret = sgx_get_encl(rg->start_addr, &encl);
+	if (ret) {
+		pr_warn("sgx: No enclave found at start addr 0x%lx ret=%d\n",
+			rg->start_addr, ret);
+		return ret;
+	}
+
+	if (end > encl->base + encl->size) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = sgx_encl_find(encl->mm, rg->start_addr, &vma);
+	if (ret || encl != vma->vm_private_data) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* Allocate one page at a time inside the range */
+	for (_rg.start_addr = rg->start_addr;
+	     _rg.start_addr < end;
+	     rg->nr_pages--,
+	     _rg.start_addr += PAGE_SIZE) {
+		struct sgx_encl_page *encl_page;
+		encl_page = sgx_encl_augment(vma, _rg.start_addr, true);
+		if (!encl_page) {
+			ret = -EFAULT;
+			break;
+		}
+	}
+
+out:
+	kref_put(&encl->refcount, sgx_encl_release);
+	return ret;
+}
+
 int remove_page(struct sgx_encl *encl, unsigned long address, bool trim)
 {
 	struct sgx_encl_page *encl_page;

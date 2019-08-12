@@ -269,6 +269,26 @@ long sgx_ioc_page_modpr(struct file *filep, unsigned int cmd,
 	return modify_range(&p->range, p->flags);
 }
 
+long sgx_ioc_page_aug(struct file *filep, unsigned int cmd,
+		      unsigned long arg)
+{
+	struct sgx_range *p = (struct sgx_range *) arg;
+
+#if 0	/* Don't care about the flag */
+	/*
+	 * Only RWX flags in mask are allowed
+	 * Restricting WR w/o RD is not allowed
+	 */
+	if (p->flags & ~(SGX_SECINFO_R | SGX_SECINFO_W | SGX_SECINFO_X))
+		return -EINVAL;
+	/* Wierd case: you cannot be writable but not readable */
+	if (!(p->flags & SGX_SECINFO_R) &&
+	    (p->flags & SGX_SECINFO_W))
+		return -EINVAL;
+#endif
+	return alloc_range(p);
+}
+
 /**
  * sgx_ioc_page_to_tcs() - Pages defined in range are switched to TCS.
  * These pages should be of type REG.
@@ -401,6 +421,9 @@ long sgx_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		break;
 	case SGX_IOC_ENCLAVE_PAGE_REMOVE:
 		handler = sgx_ioc_page_remove;
+		break;
+	case SGX_IOC_ENCLAVE_EAUG:
+		handler = sgx_ioc_page_aug;
 		break;
 	default:
 		return -ENOIOCTLCMD;
