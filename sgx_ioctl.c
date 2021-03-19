@@ -256,17 +256,24 @@ long sgx_ioc_page_modpr(struct file *filep, unsigned int cmd,
 {
 	struct sgx_modification_param *p =
 		(struct sgx_modification_param *) arg;
-
+	long ret;
 	/*
 	 * Only RWX flags in mask are allowed
 	 * Restricting WR w/o RD is not allowed
 	 */
-	if (p->flags & ~(SGX_SECINFO_R | SGX_SECINFO_W | SGX_SECINFO_X))
+	if (p->flags & ~(SGX_SECINFO_R | SGX_SECINFO_W | SGX_SECINFO_X)) {
+		printk("condition 1: %lx\n", p->flags);
 		return -EINVAL;
+	}
 	if (!(p->flags & SGX_SECINFO_R) &&
-	    (p->flags & SGX_SECINFO_W))
+	    (p->flags & SGX_SECINFO_W)) {
+		printk("condition 1: %lx\n", p->flags);
 		return -EINVAL;
-	return modify_range(&p->range, p->flags);
+	}
+	ret = modify_range(&p->range, p->flags);
+	if (ret < 0)
+		printk("modify_range failed (err = %ld)\n", ret);
+	return ret;
 }
 
 long sgx_ioc_page_aug(struct file *filep, unsigned int cmd,

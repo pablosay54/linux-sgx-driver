@@ -361,11 +361,15 @@ long modify_range(struct sgx_range *rg, unsigned long flags)
 	if (!sgx_has_sgx2)
 		return -ENOSYS;
 
-	if (rg->start_addr & (PAGE_SIZE - 1))
+	if (rg->start_addr & (PAGE_SIZE - 1)) {
+		printk("condition 3 (start addr = %p, nr = %d)\n", rg->start_addr, rg->nr_pages);
 		return -EINVAL;
+	}
 
-	if (!rg->nr_pages)
+	if (!rg->nr_pages) {
+		printk("condition 4 (start addr = %p, nr = %d)\n", rg->start_addr, rg->nr_pages);
 		return -EINVAL;
+	}
 
 	ret = sgx_get_encl(rg->start_addr, &encl);
 	if (ret) {
@@ -375,6 +379,7 @@ long modify_range(struct sgx_range *rg, unsigned long flags)
 	}
 
 	if (end > encl->base + encl->size) {
+		printk("condition 5 (start addr = %p, nr = %d)\n", rg->start_addr, rg->nr_pages);
 		ret = -EINVAL;
 		goto out;
 	}
